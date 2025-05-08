@@ -3,7 +3,7 @@ name: CI/CD
 on: [push]
 
 jobs:
-  build:
+  build-and-infer:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -11,11 +11,35 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'  # ✅ FIXED HERE
+        python-version: '3.10'
 
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
+
+    - name: Train the model
+      run: |
+        python ml/iris_classifier.py
+
+    - name: Run sample inference (10 samples)
+      run: |
+        python <<EOF
+        import pandas as pd
+        import joblib
+        from sklearn.metrics import accuracy_score
+
+        df = pd.read_csv("https://raw.githubusercontent.com/mwaskom/seaborn-data/master/iris.csv")
+        X = df.drop("species", axis=1)
+        y = df["species"]
+
+        model = joblib.load("iris_model.pkl")
+        preds = model.predict(X[:10])
+        actual = y[:10].tolist()
+
+        print("Prediction vs Actual (first 10 samples):\\n")
+        for i, (p, a) in enumerate(zip(preds, actual)):
+            print(f"Sample {i+1}: Predicted = {p}, Actual = {a}")
+        EOF
 
     - name: Build Docker image
       run: |
